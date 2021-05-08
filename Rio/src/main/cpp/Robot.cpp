@@ -18,6 +18,11 @@
 class Robot : public frc::RobotBase{
 private:
     std::atomic<bool> m_exit{false};
+    TalonSRX left{1};
+    VictorSPX leftSlave{2};
+    TalonSRX right{3};
+    VictorSPX rightSlave{4};
+
 
 public:
     Robot(){
@@ -30,7 +35,12 @@ public:
     void Autonomous() {}
 
     void Teleop() {
-        ArmRight.Set(ControlMode::PercentOutput, Controls.GetX());
+        rightSlave.Follow(right);
+        leftSlave.Follow(left);
+        while (1){
+            right.Set(ControlMode::PercentOutput, 0.3);
+            left.Set(ControlMode::PercentOutput, 0.3);
+        }
     }
 
     void Test() {}
