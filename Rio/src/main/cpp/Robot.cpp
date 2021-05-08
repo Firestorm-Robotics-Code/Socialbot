@@ -12,17 +12,30 @@
 #include <ctre/Phoenix.h>
 #include <atomic>
 
+#include <unistd.h>
 #include <frc/Joystick.h>
 #include <frc/RobotBase.h>
 
+/* CAN ID setup for Socialbot:
+-------------------------------
+Right motor (master, slave): 1, 2
+Left motor (master, slave): 3, 4
+*/
+
 class Robot : public frc::RobotBase{
 private:
-    std::atomic<bool> m_exit{false};
+    std::atomic<bool> m_exit{false}; // Don't worry about it!
+    TalonSRX Right{1}; // TalonSRX motor type, right master
+    TalonSRX Left{3}; // TalonSRX motor type, left master
+    VictorSPX RightSlave{2}; // VictorSPX motor type, right slave
+    VictorSPX LeftSlave{4}; // VictorSPX motor type, left slave
 
 public:
     Robot(){
     }
     void RobotInit() {
+        RightSlave.Follow(Right); // Make it follow the right, and thus do whatever right does
+        LeftSlave.Follow(Left);
     }
 
     void Disabled() {}
@@ -30,11 +43,23 @@ public:
     void Autonomous() {}
 
     void Teleop() {
-<<<<<<< HEAD
-        right.Set(ControlMode::PercentOutput, 0.5);
-=======
-        ArmRight.Set(ControlMode::PercentOutput, Controls.GetX());
->>>>>>> 7b1529faa6b6e3c94546a61f0768d7e7a59e61c1
+      while(true){
+        for (int i = 0; i < 500; i++) {
+          Right.Set(ControlMode::PercentOutput, 0.1);
+          Left.Set(ControlMode::PercentOutput, 0.1);
+        }
+        usleep(3500000);
+        for (int i = 0; i < 500; i++) {
+          Right.Set(ControlMode::PercentOutput, -0.5);
+          Left.Set(ControlMode::PercentOutput, 0.5);
+        }
+      }
+        // Lets break it down:
+        // Right.Set is the set call on the Right Motor. That sets the speed/power of the motor
+        // ControlMode::PercentOutput is the percent-output mode, which allows you to set the speed of the motor based on the maximum speed. Its quite deadly actually.
+        // 0.1 is a safe speed
+
+        // So, space cadets, can you make this drive based on joystick input? The necessary tab is in your browser!
     }
 
     void Test() {}
