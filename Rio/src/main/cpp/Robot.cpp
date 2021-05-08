@@ -12,24 +12,29 @@
 #include <ctre/Phoenix.h>
 #include <atomic>
 
+#include <frc/Joystick.h>
 #include <frc/RobotBase.h>
 
 class Robot : public frc::RobotBase{
 private:
     std::atomic<bool> m_exit{false};
-    TalonSRX right{1};
 
 public:
     Robot(){
     }
-    void RobotInit() {}
+    void RobotInit() {
+    }
 
     void Disabled() {}
 
     void Autonomous() {}
 
     void Teleop() {
+<<<<<<< HEAD
         right.Set(ControlMode::PercentOutput, 0.5);
+=======
+        ArmRight.Set(ControlMode::PercentOutput, Controls.GetX());
+>>>>>>> 7b1529faa6b6e3c94546a61f0768d7e7a59e61c1
     }
 
     void Test() {}
