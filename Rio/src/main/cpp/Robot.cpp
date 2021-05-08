@@ -29,7 +29,7 @@ public:
     void Autonomous() {}
 
     void Teleop() {
-
+        right.Set(ControlMode::PercentOutput, 0.5);
     }
 
     void Test() {}
