@@ -11,7 +11,7 @@
 #include <networktables/NetworkTable.h>
 #include <ctre/Phoenix.h>
 #include <atomic>
-
+#include <frc/Joystick.h>
 #include <unistd.h>
 #include <frc/Joystick.h>
 #include <frc/RobotBase.h>
@@ -29,6 +29,7 @@ private:
     TalonSRX Left{3}; // TalonSRX motor type, left master
     VictorSPX RightSlave{2}; // VictorSPX motor type, right slave
     VictorSPX LeftSlave{4}; // VictorSPX motor type, left slave
+    frc::Joystick Bobby{5}; // creates joystick object
 
 public:
     Robot(){
@@ -40,27 +41,25 @@ public:
 
     void Disabled() {}
 
-    void Autonomous() {}
+    void Autonomous() {
+      while(true){
+          for (int i = 0; i < 500; i++) {
+            Right.Set(ControlMode::PercentOutput, 0.1);
+            Left.Set(ControlMode::PercentOutput, 0.1);
+          }
+          usleep(3500000);
+          for (int i = 0; i < 500; i++) {
+            Right.Set(ControlMode::PercentOutput, -0.1);
+            Left.Set(ControlMode::PercentOutput, 0.1);
+          }
+        }
+    }
 
     void Teleop() {
-      while(true){
-        for (int i = 0; i < 500; i++) {
-          Right.Set(ControlMode::PercentOutput, 0.1);
-          Left.Set(ControlMode::PercentOutput, 0.1);
-        }
-        usleep(3500000);
-        for (int i = 0; i < 500; i++) {
-          Right.Set(ControlMode::PercentOutput, -0.5);
-          Left.Set(ControlMode::PercentOutput, 0.5);
-        }
+        Right.Set(ControlMode::PercentOutput, -Bobby.GetY() + Bobby.GetX());
+        Left.Set(ControlMode::PercentOutput, Bobby.GetY() + Bobby.GetX());
       }
-        // Lets break it down:
-        // Right.Set is the set call on the Right Motor. That sets the speed/power of the motor
-        // ControlMode::PercentOutput is the percent-output mode, which allows you to set the speed of the motor based on the maximum speed. Its quite deadly actually.
-        // 0.1 is a safe speed
 
-        // So, space cadets, can you make this drive based on joystick input? The necessary tab is in your browser!
-    }
 
     void Test() {}
 
