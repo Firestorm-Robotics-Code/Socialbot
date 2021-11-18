@@ -30,15 +30,16 @@ ________________________________________________________________________________
 class Robot : public ModularRobot{
 private:
     std::atomic<bool> m_exit{false}; // Multithreaded variable. This is why the code doesn't die!
-    TalonSRX right1{1};
-    TalonSRX right2{2};
-    TalonSRX left1{3};
-    TalonSRX left2{4};
+    TalonSRX right1{2};
+    TalonSRX right2{3};
+    TalonSRX left1{4};
+    TalonSRX left2{1};
     frc::Joystick Controls{5};
 
 public:
     Robot(){
-        HAL_SendConsoleLine("____________________________INIT ROBOT CODE____________________________\n----------- Dashes Are Not More Appealing -----------");
+        HAL_SendConsoleLine("____________________________INIT ROBOT CODE____________________________");
+        HAL_SendConsoleLine("----------- Dashes Are Not More Appealing -----------");
         setData("Socialbot", "Firestorm Robotics", 6341);
     }
 
@@ -51,10 +52,17 @@ public:
     }
 
     void TeleopLoop(){
-        right1.Set((-Controls.GetX()/2 + Controls.GetY())*(Controls.GetThrottle() * 0.5 + 0.5));
-        right2.Set((-Controls.GetX()/2 + Controls.GetY())*(Controls.GetThrottle() * 0.5 + 0.5));
-        left1.Set((-Controls.GetX()/2 + -Controls.GetY())*(Controls.GetThrottle() * 0.5 + 0.5));
-        left2.Set((-Controls.GetX()/2 + -Controls.GetY())*(Controls.GetThrottle() * 0.5 + 0.5));
+        /* NORMAL   */ right1.Set(ControlMode::PercentOutput, (Controls.GetX()/2 + Controls.GetY())*(Controls.GetThrottle() * 0.5 + 0.5));
+        /* NORMAL   */ right2.Set(ControlMode::PercentOutput, (Controls.GetX()/2 + Controls.GetY())*(Controls.GetThrottle() * 0.5 + 0.5));
+        /* INVERTED */  left1.Set(ControlMode::PercentOutput, -(-Controls.GetX()/2 + Controls.GetY())*(Controls.GetThrottle() * 0.5 + 0.5));
+        /* INVERTED */  left2.Set(ControlMode::PercentOutput, -(-Controls.GetX()/2 + Controls.GetY())*(Controls.GetThrottle() * 0.5 + 0.5));
+    }
+
+    void TestLoop(){
+        /* NORMAL   */ right1.Set(ControlMode::PercentOutput, 0.3);
+        /* NORMAL   */ right2.Set(ControlMode::PercentOutput, 0.3);
+        /* INVERTED */  left1.Set(ControlMode::PercentOutput, 0.3);
+        /* INVERTED */  left2.Set(ControlMode::PercentOutput, 0.3);
     }
 
     void BeginTest(){
