@@ -1,8 +1,13 @@
-// Copyright (c) FIRST and other WPILib contributors.
-// Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
+// Lots of FRC/Wpi crap to dredge through, but this is the 21st century and when we see a smelly swamp we build things on it.
+/*
 
-// This used to include Robot.h, now it doesn't because I prefer to write my own class.
+
+
+
+
+Ah, a nice copyright-free walkway! Careful not to fall in the bog.
+________________________________________________________________________________________
+*/
 
 #include <frc/DriverStation.h>
 #include <frc/livewindow/LiveWindow.h>
@@ -10,107 +15,58 @@
 #include <hal/DriverStation.h>
 #include <networktables/NetworkTable.h>
 #include <ctre/Phoenix.h>
-#include <atomic>
+#include "rev/CANSparkMax.h"
 
-#include <unistd.h>
 #include <frc/Joystick.h>
-#include <frc/RobotBase.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <atomic>
+#include <cstring>
 
-/* CAN ID setup for Socialbot:
--------------------------------
-Right motor (master, slave): 1, 2
-Left motor (master, slave): 3, 4
-*/
+#include "ModularRobot.hpp"
+#include "c_str_man.hpp"
 
-class Robot : public frc::RobotBase{
+
+class Robot : public ModularRobot{
 private:
-    std::atomic<bool> m_exit{false}; // Don't worry about it!
-    TalonSRX Right{1}; // TalonSRX motor type, right master
-    TalonSRX Left{3}; // TalonSRX motor type, left master
-    VictorSPX RightSlave{2}; // VictorSPX motor type, right slave
-    VictorSPX LeftSlave{4}; // VictorSPX motor type, left slave
+    std::atomic<bool> m_exit{false}; // Multithreaded variable. This is why the code doesn't die!
+    TalonSRX right1{1};
+    TalonSRX right2{2};
+    TalonSRX left1{3};
+    TalonSRX left2{4};
+    frc::Joystick Controls{5};
 
 public:
     Robot(){
-    }
-    void RobotInit() {
-        RightSlave.Follow(Right); // Make it follow the right, and thus do whatever right does
-        LeftSlave.Follow(Left);
+        HAL_SendConsoleLine("____________________________INIT ROBOT CODE____________________________\n----------- Dashes Are Not More Appealing -----------");
+        setData("Socialbot", "Firestorm Robotics", 6341);
     }
 
-    void Disabled() {}
+    void Init(){
 
-    void Autonomous() {}
-
-    void Teleop() {
-      while(true){
-        for (int i = 0; i < 500; i++) {
-          Right.Set(ControlMode::PercentOutput, 0.1);
-          Left.Set(ControlMode::PercentOutput, 0.1);
-        }
-        usleep(3500000);
-        for (int i = 0; i < 500; i++) {
-          Right.Set(ControlMode::PercentOutput, -0.5);
-          Left.Set(ControlMode::PercentOutput, 0.5);
-        }
-      }
-        // Lets break it down:
-        // Right.Set is the set call on the Right Motor. That sets the speed/power of the motor
-        // ControlMode::PercentOutput is the percent-output mode, which allows you to set the speed of the motor based on the maximum speed. Its quite deadly actually.
-        // 0.1 is a safe speed
-
-        // So, space cadets, can you make this drive based on joystick input? The necessary tab is in your browser!
     }
 
-    void Test() {}
+    void BeginTeleop(){
 
-    void StartCompetition() {
-        auto& lw = *frc::LiveWindow::GetInstance();
-
-        RobotInit();
-
-        // Tell the DS that the robot is ready to be enabled
-        HAL_ObserveUserProgramStarting();
-
-        while (!m_exit) {
-            if (IsDisabled()) {
-                m_ds.InDisabled(true);
-                Disabled();
-                m_ds.InDisabled(false);
-                while (IsDisabled()) {
-                    m_ds.WaitForData();
-                }
-            } else if (IsAutonomous()) {
-                m_ds.InAutonomous(true);
-                Autonomous();
-                m_ds.InAutonomous(false);
-                while (IsAutonomousEnabled()) {
-                    m_ds.WaitForData();
-                }
-            } else if (IsTest()) {
-                lw.SetEnabled(true);
-                frc::Shuffleboard::EnableActuatorWidgets();
-                m_ds.InTest(true);
-                Test();
-                m_ds.InTest(false);
-                while (IsTest() && IsEnabled()) {
-                    m_ds.WaitForData();
-                }
-                lw.SetEnabled(false);
-                frc::Shuffleboard::DisableActuatorWidgets();
-            } else {
-                m_ds.InOperatorControl(true);
-                Teleop();
-                m_ds.InOperatorControl(false);
-                while (IsOperatorControlEnabled()) {
-                    m_ds.WaitForData();
-                }
-            }
-        }
     }
 
-    void EndCompetition() {
-        m_exit = true;
+    void TeleopLoop(){
+        right1.Set((-Controls.GetX()/2 + Controls.GetY())*(Controls.GetThrottle() * 0.5 + 0.5));
+        right2.Set((-Controls.GetX()/2 + Controls.GetY())*(Controls.GetThrottle() * 0.5 + 0.5));
+        left1.Set((-Controls.GetX()/2 + -Controls.GetY())*(Controls.GetThrottle() * 0.5 + 0.5));
+        left2.Set((-Controls.GetX()/2 + -Controls.GetY())*(Controls.GetThrottle() * 0.5 + 0.5));
+    }
+
+    void BeginTest(){
+
+    }
+
+    void AutonomousLoop(){
+
+    }
+
+    void CleanUpTest(){
+
     }
 };
 

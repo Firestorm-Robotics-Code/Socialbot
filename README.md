@@ -1,2 +1,2 @@
-# Socialbot
-Repo for the SocialBot code. Should have RoboRio code and, when a real frame is built, code for a Grand Central which should hopefully be used instead of RoboRio
+# Becky in c++
+## Becky is our fundraising robot. Because we like robots and we like c++, we decided to program Becky in c++.
