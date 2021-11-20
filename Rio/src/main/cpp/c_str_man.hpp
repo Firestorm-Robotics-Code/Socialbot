@@ -31,10 +31,8 @@ const char* inttostring(long data){ // A wrapper around sprintf designed for inl
     return (const char*)buffer;
 }
 
-const char* floattostring(float data){
-    char* buffer = (char*)malloc(9); // Being a percentage, the most number of characters possible is -0.12, which is five. However, snprintf requires nine.
+void floattostring(float data, char* buffer){
     sprintf(buffer,"%f",data);
-    return buffer;
 }
 
 const char* constchar_concat(const char* part1, const char* part2){
