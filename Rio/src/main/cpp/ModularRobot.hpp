@@ -9,6 +9,8 @@
 #include <atomic>
 #include "c_str_man.hpp"
 #include <string>
+#include <frc/Notifier.h>
+#include <units/time.h>
 
 class ModularRobot;
 
@@ -34,10 +36,11 @@ private:
     const char* RobotName;
     const char* TeamName;
     int TeamNumber;
-    int mode = -1; // 0 = disabled, 1 = autonomous, 2 = test, 3 = teleop
     unsigned long long tick; // Number of iterations since robot began
     unsigned long long localTick; // Number of iterations since current operation-mode began
+    unsigned long long periodicDelayValue = 200000;
 public:
+    uint8_t mode = 0; // 0 = disabled, 1 = autonomous, 2 = test, 3 = teleop
     void println(const char* data){
         HAL_SendConsoleLine(data);
     }
@@ -107,6 +110,44 @@ public:
 
     }
 
+    virtual void TeleopPeriodic(){
+
+    }
+
+    virtual void AutonomousPeriodic(){
+
+    }
+
+    virtual void TestPeriodic(){
+
+    }
+
+    void setPeriodicDelay(long micros){
+        periodicDelayValue = micros;
+    }
+
+    static void periodicThread(ModularRobot *self){
+        while (1){
+            switch(self -> mode){
+                case 1:
+                    self -> AutonomousPeriodic();
+                    break;
+                case 2:
+                    self -> TestPeriodic();
+                    break;
+                case 3:
+                    self -> TeleopPeriodic();
+                    break;
+            }
+            usleep(self -> periodicDelayValue);
+        }
+    }
+
+    void periodicBegin(){
+        std::thread periodic(periodicThread, this);
+        periodic.detach();
+    }
+
     void addModule(Module module){
         modules.push_back(module);
         module.beginModule(this); // Module init function should take a pointer to a ModularRobot
@@ -119,7 +160,7 @@ public:
         Loop();
     }
 
-    void StartCompetition(){ // "Final" keeps it from being overriden so stupid people don't damage the program
+    void StartCompetition(){
         Init();
         HAL_SendConsoleLine(constchar_concat_many(6, RobotName, " by ", TeamName, " (FRC ", "6341", ") is now turning on!"));
         HAL_InitializeDriverStation();

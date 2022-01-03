@@ -63,7 +63,6 @@ If identifiable sections of this License, shall survive. Termination Upon Assert
 #include <arpa/inet.h>
 #include <frc/Joystick.h>
 #include <frc/Notifier.h>
-#include <units/time.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -92,22 +91,22 @@ private:
     long right2Pos = 0;
     long left1Pos = 0;
     long left2Pos = 0;
-    frc::Notifier *PIDLoop;
 
 public:
     Robot(){
         HAL_SendConsoleLine("____________________________INIT ROBOT CODE____________________________");
-        HAL_SendConsoleLine("----------- Dashes Are Not More Appealing -----------");
-        HAL_SendConsoleLine("FRC driver station is poopy, gotta write an alternative. This gon' be fun.")
+        HAL_SendConsoleLine("-------------------- Dashes Are Not More Appealing --------------------");
         setData("Socialbot", "Firestorm Robotics", 6341);
     }
 
-    void RunPIDTasks(){
-        moveMecanum(Controls.GetY()*1024 + Controls.GetTrigger() * 1024 + 2147483648);
-        right1.Set(ControlMode::Position, right1Pos);
-        left1.Set(ControlMode::Position, left1Pos);
-        right2.Set(ControlMode::Position, right2Pos);
-        left2.Set(ControlMode::Position, left2Pos);
+    static void Periodic(Robot *self){
+        /*if (self -> mode == 3){
+            self -> right1.Set(ControlMode::Position, self -> right1Pos);
+            self -> left1.Set(ControlMode::Position, self -> left1Pos);
+            self -> right2.Set(ControlMode::Position, self -> right2Pos);
+            self -> left2.Set(ControlMode::Position, self -> left2Pos);
+        }
+        HAL_SendConsoleLine("Yo");*/
     }
 
     void Init(){
@@ -124,10 +123,18 @@ public:
         right2Pos = right2.GetSelectedSensorPosition();
         left1Pos = left1.GetSelectedSensorPosition();
         left2Pos = left2.GetSelectedSensorPosition();*/
-        PIDLoop = new frc::Notifier(&Robot::RunPIDTasks, this);
+        //PIDLoop = new frc::Notifier(&Robot::RunPIDTasks, this);
+        //HAL_SendConsoleLine("Got connection");
+        BeginTalonPID(&right1, 0);
+        BeginTalonPID(&left1, 0);
+        BeginTalonPID(&right2, 0);
+        BeginTalonPID(&left2, 0);
+        //left1.SetInverted(true);
+        //left2.SetInverted(true);
     }
 
-    void BeginTalonPID(TalonSRX *_talon, long position, uint8_t slot = 0, uint8_t timeout = 30, float maxSpeed = 0.5){
+    void BeginTalonPID(TalonSRX *_talon, long position, uint8_t slot = 0, uint8_t timeout = 30, float maxSpeed = 1){
+        _talon->ConfigFactoryDefault();
         _talon->SetSelectedSensorPosition(position, slot, timeout);
 
         /* choose the sensor and sensor direction */
@@ -136,10 +143,10 @@ public:
         _talon->SetSensorPhase(true);
 
         /* set the peak and nominal outputs, 12V means full */
-        _talon->ConfigNominalOutputForward(0, 30);
-        _talon->ConfigNominalOutputReverse(0, 30);
-        _talon->ConfigPeakOutputForward(maxSpeed, 30);
-        _talon->ConfigPeakOutputReverse(-maxSpeed, 30);
+        _talon->ConfigNominalOutputForward(0, timeout);
+        _talon->ConfigNominalOutputReverse(0, timeout);
+        _talon->ConfigPeakOutputForward(maxSpeed, timeout);
+        _talon->ConfigPeakOutputReverse(-maxSpeed, timeout);
 
         /* set closed loop gains in slot0 */
         _talon->Config_kF(slot, 0.0, timeout);
@@ -149,25 +156,17 @@ public:
     }
 
     void BeginTeleop(){
-        BeginTalonPID(&right1, right1Pos);
-        BeginTalonPID(&left1, left1Pos);
-        BeginTalonPID(&right2, right2Pos);
-        BeginTalonPID(&left2, left2Pos);
-        left1.SetInverted(true);
-        left2.SetInverted(true);
-        PIDLoop -> StartPeriodic((units::millisecond_t)200);
+
     }
 
-    void moveStandard(uint32_t change){
-        int32_t signedVersion = change - 2147483648; // Make it signed so the robot can go backwards.
-        right1Pos += signedVersion;
-        right2Pos += signedVersion;
-        left1Pos += signedVersion;
-        left2Pos += signedVersion;
+    void moveStandard(int32_t change){
+        right1Pos += change;
+        right2Pos += change;
+        left1Pos += change;
+        left2Pos += change;
     }
 
-    void moveMecanum(uint32_t change){
-        int32_t signedVersion = change;// - 2147483648; // Make it signed so the robot can go backwards.
+    void moveMecanum(int32_t change){
         right1Pos += change;
         right2Pos -= change;
         left1Pos -= change;
@@ -175,24 +174,30 @@ public:
     }
 
     void TeleopLoop(){
-        char buff;
-        read(connfd, &buff, 1); // Get one byte
-        switch (buff){
-            case 1: // This is a move command.
-                char* byWhichAmount = "00000000"; // Literally no reason for this to be anything, it's going to be overwritten in a second.
-                // However, if it isn't something, we'll end up with a segfault because the pointer out of bounds bla bla bla.
-                // *Dreams of Arduino Mega*
-                int totalRead = 0;
-                while (totalRead < 8){
-                    read(connfd, byWhichAmount + totalRead, 8); // Bit of pointer magic here; because it's a pointer, we can shift up in memory by the number of bytes it's read and not lose data.
-                }
-                uint32_t yChange = byWhichAmount[0] + byWhichAmount[1] * 256 + byWhichAmount[2] * 65536 + byWhichAmount[3] * 16777216; // To the coders that just threw up: go screw yourselves. This is much faster than the alternative.
-                uint32_t xChange = byWhichAmount[4] + byWhichAmount[5] * 256 + byWhichAmount[6] * 65536 + byWhichAmount[7] * 16777216; // Stop that, that's new carpeting!
-                moveStandard(yChange);
-                moveMecanum(xChange);
-                write(connfd, "0", 1);
-                break;
+        double controlY = -1 * Controls.GetY() * (Controls.GetThrottle() + 1) / 2; // Speed limiter, the throttle can be -1 to 1 so this makes it work
+        double controlX = Controls.GetX() * (Controls.GetThrottle() + 1) / 2;
+        double right1mov = controlY;
+        double left1mov = controlY;
+        double right2mov = controlY;
+        double left2mov = controlY;
+        if (!Controls.GetTrigger()){ // Trigger makes it turn. Works well after my tests, so whatever your problem is, it isn't that!
+            right1mov -= 2 * controlX;
+            left1mov += 2 * controlX;
+            right2mov += 2 * controlX;
+            left2mov -= 2 * controlX;
         }
+        else{
+            right1mov += controlX;
+            left1mov -= controlX;
+            right2mov += controlX;
+            left2mov -= controlX;
+        }
+        left1.Set(ControlMode::PercentOutput, left1mov);
+        right1.Set(ControlMode::PercentOutput, right1mov);
+        left2.Set(ControlMode::PercentOutput, left2mov);
+        right2.Set(ControlMode::PercentOutput, right2mov);
+
+        //usleep(200000);
     }
 
     void TestLoop(){
@@ -226,7 +231,7 @@ public:
     }
 
     void CleanUpTeleop(){
-        PIDLoop -> Stop();
+
     }
 };
 

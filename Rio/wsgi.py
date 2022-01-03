@@ -11,8 +11,6 @@ from flask import Flask, escape, request
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect(("roboRIO-6341-FRC.local", 5801))
 
-initialBroadcast = client.recv(5)
-
 while 1:
     xm = int(input("Xmov> "))
     ym = int(input("Ymov> "))
