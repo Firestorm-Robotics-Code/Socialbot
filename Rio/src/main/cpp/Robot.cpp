@@ -180,6 +180,7 @@ public:
         double left1mov = controlY;
         double right2mov = controlY;
         double left2mov = controlY;
+
         if (!Controls.GetTrigger()){ // Trigger makes it turn. Works well after my tests, so whatever your problem is, it isn't that!
             right1mov -= 2 * controlX;
             left1mov += 2 * controlX;
@@ -192,6 +193,7 @@ public:
             right2mov += controlX;
             left2mov -= controlX;
         }
+        
         left1.Set(ControlMode::PercentOutput, left1mov);
         right1.Set(ControlMode::PercentOutput, right1mov);
         left2.Set(ControlMode::PercentOutput, left2mov);
