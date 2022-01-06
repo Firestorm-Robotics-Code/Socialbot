@@ -5,7 +5,7 @@
 
 
 
-Ah, a nice copyright-free building, atop a smelly swamp!
+You see how nice things can be built upon the swamps of copyright?
                                              ________________________________________________
                                             |                                                |
                                             |   ________                          ________   |
@@ -44,7 +44,9 @@ Ah, a nice copyright-free building, atop a smelly swamp!
                                             |                   |     O |                    |
                                             |                   |       |                    |
                                             |                   |       |                    |
-                                            --------------------------------------------------
+ ___________________________________________--------------------------------------------------_________________________________________________
+|                                                                                                                                              |
+|______________________________________________________________________________________________________________________________________________|
 Distribution includes (but is not possible to put the Notice in a larger work of which you may at your option offer warranty protection in exchange for a fee. You may always continue to use the Work by You to the interfaces of, the Licensor except as expressly stated in Sections 2(a) and 2(b) above, Recipient receives no rights or licenses to their respective portions thereof. Deploy" means: (a) to sublicense, distribute or transfer NetHack except as disclosed pursuant to Section 3.4(a) above, Contributor believes that Contributor's Modifications are derived, directly or indirectly infringes any patent where such claim is resolved (such as a whole.
 
 If identifiable sections of this License, shall survive. Termination Upon Assertion of Patent Infringement. If you do not forfeit any of the original test modes be preserved. If you make it clear that any such warranty or additional liability.
@@ -63,6 +65,8 @@ If identifiable sections of this License, shall survive. Termination Upon Assert
 #include <arpa/inet.h>
 #include <frc/Joystick.h>
 #include <frc/Notifier.h>
+#include <frc/Compressor.h>
+#include <frc/Solenoid.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -91,6 +95,8 @@ private:
     long right2Pos = 0;
     long left1Pos = 0;
     long left2Pos = 0;
+    frc::Solenoid up{5, 0};
+    frc::Compressor comp{5};
 
 public:
     Robot(){
@@ -125,10 +131,10 @@ public:
         left2Pos = left2.GetSelectedSensorPosition();*/
         //PIDLoop = new frc::Notifier(&Robot::RunPIDTasks, this);
         //HAL_SendConsoleLine("Got connection");
-        BeginTalonPID(&right1, 0);
+        /*BeginTalonPID(&right1, 0);
         BeginTalonPID(&left1, 0);
         BeginTalonPID(&right2, 0);
-        BeginTalonPID(&left2, 0);
+        BeginTalonPID(&left2, 0);*/
         //left1.SetInverted(true);
         //left2.SetInverted(true);
     }
@@ -156,7 +162,7 @@ public:
     }
 
     void BeginTeleop(){
-
+        comp.SetClosedLoopControl(true);
     }
 
     void moveStandard(int32_t change){
@@ -173,6 +179,8 @@ public:
         left2Pos += change;
     }
 
+    bool triggy = false;
+
     void TeleopLoop(){
         double controlY = -1 * Controls.GetY() * (Controls.GetThrottle() + 1) / 2; // Speed limiter, the throttle can be -1 to 1 so this makes it work
         double controlX = Controls.GetX() * (Controls.GetThrottle() + 1) / 2;
@@ -186,19 +194,27 @@ public:
             left1mov += 2 * controlX;
             right2mov += 2 * controlX;
             left2mov -= 2 * controlX;
+            if (triggy){
+                triggy = false;
+                up.Set(true);
+                HAL_SendConsoleLine("It may have worked");
+            }
+            else{
+                up.Set(false);
+            }
         }
         else{
             right1mov += controlX;
             left1mov -= controlX;
             right2mov += controlX;
             left2mov -= controlX;
+            triggy = true;
         }
-        
+
         left1.Set(ControlMode::PercentOutput, left1mov);
         right1.Set(ControlMode::PercentOutput, right1mov);
         left2.Set(ControlMode::PercentOutput, left2mov);
         right2.Set(ControlMode::PercentOutput, right2mov);
-
         //usleep(200000);
     }
 
