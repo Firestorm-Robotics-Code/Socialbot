@@ -44,9 +44,9 @@ You see how nice things can be built upon the swamps of copyright?
                                             |                   |     O |                    |
                                             |                   |       |                    |
                                             |                   |       |                    |
- ___________________________________________--------------------------------------------------_________________________________________________
-|                                                                                                                                              |
-|______________________________________________________________________________________________________________________________________________|
+ ___________________________________________--------------------------------------------------____________________________________________________
+|                                                                                                                                                 |
+|_________________________________________________________________________________________________________________________________________________|
 Distribution includes (but is not possible to put the Notice in a larger work of which you may at your option offer warranty protection in exchange for a fee. You may always continue to use the Work by You to the interfaces of, the Licensor except as expressly stated in Sections 2(a) and 2(b) above, Recipient receives no rights or licenses to their respective portions thereof. Deploy" means: (a) to sublicense, distribute or transfer NetHack except as disclosed pursuant to Section 3.4(a) above, Contributor believes that Contributor's Modifications are derived, directly or indirectly infringes any patent where such claim is resolved (such as a whole.
 
 If identifiable sections of this License, shall survive. Termination Upon Assertion of Patent Infringement. If you do not forfeit any of the original test modes be preserved. If you make it clear that any such warranty or additional liability.
@@ -76,11 +76,12 @@ If identifiable sections of this License, shall survive. Termination Upon Assert
 #include <fcntl.h>
 
 
-#include "ModularRobot.hpp"
+#include "WebServerRobot.hpp"
+#include "httpserver.hpp"
 //#include "c_str_man.hpp"
 
 
-class Robot : public ModularRobot{
+class Robot : public WebServerRobot{
 private:
     std::atomic<bool> m_exit{false}; // Multithreaded variable. This is why the code doesn't die!
     TalonSRX right1{2};
@@ -97,6 +98,7 @@ private:
     long left2Pos = 0;
     frc::Solenoid up{5, 0};
     frc::Compressor comp{5};
+    frc::Solenoid down{5, 1};
 
 public:
     Robot(){
@@ -135,8 +137,8 @@ public:
         BeginTalonPID(&left1, 0);
         BeginTalonPID(&right2, 0);
         BeginTalonPID(&left2, 0);*/
-        //left1.SetInverted(true);
-        //left2.SetInverted(true);
+        left1.SetInverted(true);
+        left2.SetInverted(true);
     }
 
     void BeginTalonPID(TalonSRX *_talon, long position, uint8_t slot = 0, uint8_t timeout = 30, float maxSpeed = 1){
@@ -162,7 +164,7 @@ public:
     }
 
     void BeginTeleop(){
-        comp.SetClosedLoopControl(true);
+
     }
 
     void moveStandard(int32_t change){
@@ -179,7 +181,8 @@ public:
         left2Pos += change;
     }
 
-    bool triggy = false;
+    bool triggy = true; // We want the first press to go up.
+    bool state = false; // Off
 
     void TeleopLoop(){
         double controlY = -1 * Controls.GetY() * (Controls.GetThrottle() + 1) / 2; // Speed limiter, the throttle can be -1 to 1 so this makes it work
@@ -189,25 +192,36 @@ public:
         double right2mov = controlY;
         double left2mov = controlY;
 
-        if (!Controls.GetTrigger()){ // Trigger makes it turn. Works well after my tests, so whatever your problem is, it isn't that!
+        if (!Controls.GetTrigger()){
             right1mov -= 2 * controlX;
             left1mov += 2 * controlX;
             right2mov += 2 * controlX;
             left2mov -= 2 * controlX;
-            if (triggy){
-                triggy = false;
-                up.Set(true);
-                HAL_SendConsoleLine("It may have worked");
-            }
-            else{
-                up.Set(false);
-            }
         }
         else{
             right1mov += controlX;
             left1mov -= controlX;
             right2mov += controlX;
             left2mov -= controlX;
+        }
+
+        if (!Controls.GetRawButton(2)){ // Trigger makes it turn. Works well after my tests, so whatever your problem is, it isn't that
+            if (triggy){
+                triggy = false;
+                if (state){
+                    HAL_SendConsoleLine("Rising.");
+                    up.Set(true);
+                    down.Set(false);
+                }
+                else{
+                    HAL_SendConsoleLine("Dropping.");
+                    down.Set(true);
+                    up.Set(false);
+                }
+                state = !state; // Flip it. First press goes up, second press goes down, etc.
+            }
+        }
+        else{
             triggy = true;
         }
 
