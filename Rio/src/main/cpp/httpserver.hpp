@@ -52,12 +52,14 @@ struct ThreadSafeClientPool{ // Custom linked-list implementation for thread saf
     }
 };
 
-struct WebServerRobot : ModularRobot{
+struct HTTPServer{
     int serverSock = -1; // We don't want this to accidentally write to stdin/out if it is not assigned.
     // Yet.
     struct sockaddr_in address;
 
     ThreadSafeClientPool clients;
+    
+    std::thread accepterThread(accepter);
 
     static void accepter(WebServerRobot* self){
         while (true){
@@ -65,7 +67,7 @@ struct WebServerRobot : ModularRobot{
         }
     }
 
-    void StartCompetition(){
+    HTTPServer(){
         serverSock = socket(AF_INET, SOCK_STREAM, 0);
         memset(&address, 0, sizeof(struct sockaddr_in));
         address.sin_family = AF_INET;
@@ -73,7 +75,6 @@ struct WebServerRobot : ModularRobot{
         address.sin_addr.s_addr = INADDR_ANY;
         bind(serverSock, (struct sockaddr*)&address, sizeof(struct sockaddr_in));
         listen(serverSock, 25); // Listen for maximum 25 peoples
-        std::thread accepterThread(accepter);
         accepterThread.detach();
     }
 };

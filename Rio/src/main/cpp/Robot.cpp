@@ -44,10 +44,11 @@ You see how nice things can be built upon the swamps of copyright?
                                             |                   |     O |                    |
                                             |                   |       |                    |
                                             |                   |       |                    |
- ___________________________________________--------------------------------------------------____________________________________________________
-|                                                                                                                                                 |
-|_________________________________________________________________________________________________________________________________________________|
-Distribution includes (but is not possible to put the Notice in a larger work of which you may at your option offer warranty protection in exchange for a fee. You may always continue to use the Work by You to the interfaces of, the Licensor except as expressly stated in Sections 2(a) and 2(b) above, Recipient receives no rights or licenses to their respective portions thereof. Deploy" means: (a) to sublicense, distribute or transfer NetHack except as disclosed pursuant to Section 3.4(a) above, Contributor believes that Contributor's Modifications are derived, directly or indirectly infringes any patent where such claim is resolved (such as a whole.
+ ___________________________________________--------------------------------------------------_____________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
+|                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+|__________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________|
+Distribution includes (but is not possible to put the Notice in a larger work of which you may at your option offer warranty protection in exchange for a fee. You may always continue to use the Work by You to the interfaces of, the Licensor except as expressly stated in Sections 2(a) and 2(b) above, Recipient receives no rights or licenses to their respective portions thereof. Deploy" means: (a) to sublicense, distribute or transfer NetHack except as disclosed pursuant to Section 3.4(a) above,
+Contributor believes that Contributor's Modifications are derived, directly or indirectly infringes any patent where such claim is resolved (such as a whole.
 
 If identifiable sections of this License, shall survive. Termination Upon Assertion of Patent Infringement. If you do not forfeit any of the original test modes be preserved. If you make it clear that any such warranty or additional liability.
 
@@ -74,14 +75,16 @@ If identifiable sections of this License, shall survive. Termination Upon Assert
 #include <cstring>
 #include <thread>
 #include <fcntl.h>
+#include <frc/DigitalInput.h>
 
 
-#include "WebServerRobot.hpp"
-#include "httpserver.hpp"
+//#include "WebServerRobot.hpp"
+#include "ModularRobot.hpp"
+//#include "httpserver.hpp"
 //#include "c_str_man.hpp"
 
 
-class Robot : public WebServerRobot{
+class Robot : public ModularRobot{
 private:
     std::atomic<bool> m_exit{false}; // Multithreaded variable. This is why the code doesn't die!
     TalonSRX right1{2};
@@ -99,6 +102,7 @@ private:
     frc::Solenoid up{5, 0};
     frc::Compressor comp{5};
     frc::Solenoid down{5, 1};
+    frc::DigitalInput button{2};
 
 public:
     Robot(){
@@ -185,6 +189,10 @@ public:
     bool state = false; // Off
 
     void TeleopLoop(){
+        if (button.Get()){
+            HAL_SendConsoleLine("Yoooo\nPOOOOO");
+            usleep(1000000);
+        }
         double controlY = -1 * Controls.GetY() * (Controls.GetThrottle() + 1) / 2; // Speed limiter, the throttle can be -1 to 1 so this makes it work
         double controlX = Controls.GetX() * (Controls.GetThrottle() + 1) / 2;
         double right1mov = controlY;
