@@ -80,7 +80,7 @@ If identifiable sections of this License, shall survive. Termination Upon Assert
 
 //#include "WebServerRobot.hpp"
 #include "ModularRobot.hpp"
-//#include "httpserver.hpp"
+#include "httpserver.hpp"
 //#include "c_str_man.hpp"
 
 
@@ -105,10 +105,15 @@ private:
     frc::DigitalInput button{2};
 
 public:
+
     Robot(){
         HAL_SendConsoleLine("____________________________INIT ROBOT CODE____________________________");
         HAL_SendConsoleLine("-------------------- Dashes Are Not More Appealing --------------------");
         setData("Socialbot", "Firestorm Robotics", 6341);
+    }
+
+    void respond(HTTPRequest *req, HTTPResponse *ron, Client *client){
+        ron -> content = "You are all losers.";
     }
 
     static void Periodic(Robot *self){
@@ -143,6 +148,9 @@ public:
         BeginTalonPID(&left2, 0);*/
         left1.SetInverted(true);
         left2.SetInverted(true);
+        HTTPServer server (5801, [this](HTTPRequest* req, HTTPResponse* ron, Client* client){
+            this -> respond(req, ron, client);
+        }, 3);
     }
 
     void BeginTalonPID(TalonSRX *_talon, long position, uint8_t slot = 0, uint8_t timeout = 30, float maxSpeed = 1){
