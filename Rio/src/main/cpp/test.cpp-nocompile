@@ -1,6 +1,10 @@
 #include "httpserver.hpp"
 
 
+struct ClientState{
+    int tries = 0;
+};
+
 void respond(HTTPRequest *req, HTTPResponse *ron, Client *cli){
     if (req -> url == "/index.html"){
         ron -> status = 200;
@@ -13,10 +17,25 @@ void respond(HTTPRequest *req, HTTPResponse *ron, Client *cli){
         ron -> content = "You suck. Next time, don't show your face, you ugly brute.\r\n";
         ron -> keepAlive = false;
     }
+    ClientState *state = (ClientState*)cli -> state;
+    if (state == nullptr){
+        cli -> state = new ClientState;
+    }
+    else{
+        if (state -> tries > 2){
+            ron -> content += "You've visited way too many times, didja know?\r\n";
+        }
+        state -> tries ++;
+    }
+}
+
+void disconnect(Client *client){
+    printf("Killing client with state %d\n", ((ClientState*)client -> state) -> tries);
+    free(client -> state);
 }
 
 int main(){
-    HTTPServer http(5801, &respond, 3); // They allow 5800-5810 for our stuff, we'll send everything over the one port. 5801 is just to avoid weird potential bugs.
+    HTTPServer http(5802, &respond, &disconnect, 3); // They allow 5800-5810 for our stuff, we'll send everything over the one port. 5801 is just to avoid weird potential bugs.
     while (1){
         http.run();
     }

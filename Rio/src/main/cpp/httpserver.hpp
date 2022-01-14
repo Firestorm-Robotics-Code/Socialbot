@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <atomic>
+#include <functional>
 
 // Otherwise
 #include <signal.h>
@@ -76,6 +77,7 @@ struct Client{
     HTTPRequest *currentRequest;
     bool hasRequest = false;
     int sock;
+    void *state = nullptr;
 };
 
 // HTTP server structure, I always use structs because classes are eww. It has all the necessary functions to do things.
@@ -87,7 +89,8 @@ struct HTTPServer{
 
     std::vector<Client*> clients;
 
-    std::function<void(HTTPRequest*, HTTPResponse*, Client*)> requestCallback;//void (*requestCallback)(HTTPRequest*, HTTPResponse*, Client*);
+    std::function<void(HTTPRequest*, HTTPResponse*, Client*)> requestCallback;
+    std::function<void(Client*)> disconnectedCallback;
 
     static void accepter(HTTPServer* self){ // The self thing is a workaround; because thread functions can't be members, you have to pass in `this` the hard way.
         while (true){
@@ -148,6 +151,7 @@ struct HTTPServer{
                 Client *client = self -> clients[x];
                 char buffer;
                 if (recv(client -> sock, &buffer, 1, 0) == 0){ // Disconnect dead sockets.
+                    self -> disconnectedCallback(client);
                     close(client -> sock);
                     free(client);
                     self -> clients.erase(self -> clients.begin() + x);
@@ -291,9 +295,10 @@ struct HTTPServer{
         }
     }
 
-    HTTPServer(unsigned int port, std::function<void(HTTPRequest*, HTTPResponse*, Client*)> rCbck, unsigned int timeout = 2){
+    HTTPServer(unsigned int port, std::function<void(HTTPRequest*, HTTPResponse*, Client*)> rCbck, std::function<void(Client*)> dCbck, unsigned int timeout = 2){
         signal(SIGPIPE, SIG_IGN);
         requestCallback = rCbck;
+        disconnectedCallback = dCbck;
         serverSock = socket(AF_INET, SOCK_STREAM, 0);
         memset(&address, 0, sizeof(struct sockaddr_in));
         address.sin_family = AF_INET;

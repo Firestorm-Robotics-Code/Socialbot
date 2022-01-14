@@ -103,6 +103,7 @@ private:
     frc::Compressor comp{5};
     frc::Solenoid down{5, 1};
     frc::DigitalInput button{2};
+    HTTPServer *server;
 
 public:
 
@@ -114,6 +115,10 @@ public:
 
     void respond(HTTPRequest *req, HTTPResponse *ron, Client *client){
         ron -> content = "You are all losers.";
+    }
+
+    void disconnect(Client *client){
+        free(client -> state);
     }
 
     static void Periodic(Robot *self){
@@ -148,9 +153,11 @@ public:
         BeginTalonPID(&left2, 0);*/
         left1.SetInverted(true);
         left2.SetInverted(true);
-        HTTPServer server (5801, [this](HTTPRequest* req, HTTPResponse* ron, Client* client){
+        server = new HTTPServer (5801, [this](HTTPRequest* req, HTTPResponse* ron, Client* client){
             this -> respond(req, ron, client);
-        }, 3);
+        }, [this](Client *client){
+            this -> disconnect(client);
+        }, 3); // Initialize it. This is a poor coding practice but I'm not going to bother improving it, that's just how awesome my ethics are.
     }
 
     void BeginTalonPID(TalonSRX *_talon, long position, uint8_t slot = 0, uint8_t timeout = 30, float maxSpeed = 1){
