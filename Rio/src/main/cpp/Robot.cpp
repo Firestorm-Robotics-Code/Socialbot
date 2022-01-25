@@ -76,12 +76,15 @@ If identifiable sections of this License, shall survive. Termination Upon Assert
 #include <thread>
 #include <fcntl.h>
 #include <frc/DigitalInput.h>
+#include <AHRS.h>
+#include <frc/SPI.h>
 
 
-//#include "WebServerRobot.hpp"
 #include "ModularRobot.hpp"
 #include "httpserver.hpp"
-//#include "c_str_man.hpp"
+
+// Note that in any case where user and driverstation are at odds, driverstation wins. The person at the driverstation computer can, thus, at any time, override mode and similar.
+#include "site.hpp"
 
 
 class Robot : public ModularRobot{
@@ -104,31 +107,36 @@ private:
     frc::Solenoid down{5, 1};
     frc::DigitalInput button{2};
     HTTPServer *server;
+    AHRS navx {frc::SPI::Port::kMXP};
 
 public:
 
     Robot(){
-        HAL_SendConsoleLine("____________________________INIT ROBOT CODE____________________________");
-        HAL_SendConsoleLine("-------------------- Dashes Are Not More Appealing --------------------");
+        HAL_SendConsoleLine("Please connect to http://roboRIO-6341-FRC.local:5801 for web console (Firefox, potentially Chrome). Please see Tyler, the incredibly smart, if you have a problem.");
+        HAL_SendConsoleLine("Note that it is unnecessary to use the web console, it simply adds more features. You can also control it with cURL, but you'll need the manual for that.");
         setData("Socialbot", "Firestorm Robotics", 6341);
     }
 
-    void respond(HTTPRequest *req, HTTPResponse *ron, Client *client){
-        ron -> content = "You are all losers.";
+    void respond(HTTPARGS){
+
     }
 
     void disconnect(Client *client){
-        free(client -> state);
+        /*// Comment gate. Add an asterisk in front of the first forward slash to close, remove said asterisk to open.
+        // The idea is (quite idiotically) to comment out code cleanly by toggling one character.
+        free(client -> state); // Prevent memleak.
+        //*/
     }
 
     static void Periodic(Robot *self){
-        /*if (self -> mode == 3){
+        /*//
+        if (self -> mode == 3){
             self -> right1.Set(ControlMode::Position, self -> right1Pos);
             self -> left1.Set(ControlMode::Position, self -> left1Pos);
             self -> right2.Set(ControlMode::Position, self -> right2Pos);
             self -> left2.Set(ControlMode::Position, self -> left2Pos);
         }
-        HAL_SendConsoleLine("Yo");*/
+        HAL_SendConsoleLine("Yo");//*/
     }
 
     void Init(){
@@ -153,20 +161,24 @@ public:
         BeginTalonPID(&left2, 0);*/
         left1.SetInverted(true);
         left2.SetInverted(true);
-        server = new HTTPServer (5801, [this](HTTPRequest* req, HTTPResponse* ron, Client* client){
-            this -> respond(req, ron, client);
+        /*server = new HTTPServer (5801, [this](HTTPARGS){
+            this -> respond(HTTPPASSARGS);
         }, [this](Client *client){
             this -> disconnect(client);
-        }, 3); // Initialize it. This is a poor coding practice but I'm not going to bother improving it, that's just how awesome my ethics are.
+        }, 3); // Initialize it. This method is a poor coding practice but I'm not going to bother improving it, that's just how awesome my ethics are.*/
+        setPeriodicDelay(200000);
+        navx.Calibrate();
+        navx.ResetDisplacement();
     }
 
-    void BeginTalonPID(TalonSRX *_talon, long position, uint8_t slot = 0, uint8_t timeout = 30, float maxSpeed = 1){
+    void BeginTalonPID(TalonSRX *_talon, long position, uint8_t slot = 0, uint8_t timeout = 30, float maxSpeed = 0.6){
         _talon->ConfigFactoryDefault();
+
         _talon->SetSelectedSensorPosition(position, slot, timeout);
 
         /* choose the sensor and sensor direction */
         _talon->ConfigSelectedFeedbackSensor(
-                FeedbackDevice::CTRE_MagEncoder_Relative, slot, timeout);
+                FeedbackDevice::CTRE_MagEncoder_Absolute, slot, timeout);
         _talon->SetSensorPhase(true);
 
         /* set the peak and nominal outputs, 12V means full */
@@ -180,34 +192,44 @@ public:
         _talon->Config_kP(slot, 0.1, timeout);
         _talon->Config_kI(slot, 0.0, timeout);
         _talon->Config_kD(slot, 0.0, timeout);
+        printf("Begunt motor\n");
     }
 
     void BeginTeleop(){
-
+        BeginTalonPID(&right1, 1);
+        BeginTalonPID(&right2, 1);
+        BeginTalonPID(&left1, 1);
+        BeginTalonPID(&left2, 1);
+        printf("Begunt teleop\n");
+        navx.ResetDisplacement();
     }
 
-    void moveStandard(int32_t change){
+    void moveForwards(long change){
         right1Pos += change;
         right2Pos += change;
         left1Pos += change;
         left2Pos += change;
     }
 
-    void moveMecanum(int32_t change){
+    void moveSideways(long change){
         right1Pos += change;
         right2Pos -= change;
         left1Pos -= change;
         left2Pos += change;
     }
 
+    void moveTo(long x, long y){
+        right1Pos = (y + x * 2) + right1Pos; // X = mecanum, which loses half of power to friction (approx.)
+        right2Pos = (y - x * 2) + right2Pos;
+        left1Pos = (y - x * 2) + left1Pos;
+        left2Pos = (y + x * 2) + left2Pos;
+    }
+
     bool triggy = true; // We want the first press to go up.
     bool state = false; // Off
 
     void TeleopLoop(){
-        if (button.Get()){
-            HAL_SendConsoleLine("Yoooo\nPOOOOO");
-            usleep(1000000);
-        }
+        /*//
         double controlY = -1 * Controls.GetY() * (Controls.GetThrottle() + 1) / 2; // Speed limiter, the throttle can be -1 to 1 so this makes it work
         double controlX = Controls.GetX() * (Controls.GetThrottle() + 1) / 2;
         double right1mov = controlY;
@@ -247,12 +269,42 @@ public:
         else{
             triggy = true;
         }
+        printf("%f\n", left1mov);
+        usleep(1000000);
+        left1Pos += left1mov * 2048;
+        left2Pos += left2mov * 2048;
+        right1Pos += right1mov * 2048;
+        right2Pos += right2mov * 2048;
+        //*/
+        ///
+        if (Controls.GetTrigger()){
+            const double minSpeed = 0;
+            const double maxSpeed = 0.3;
+            double wrongness = minSpeed + ((0.1 - navx.GetDisplacementX()) * 10) * (maxSpeed - minSpeed); // 1 when it's 360 degrees away, and then * 0.5 so the max is 0.5.
+            right1.Set(ControlMode::PercentOutput, wrongness);
+            right2.Set(ControlMode::PercentOutput, wrongness);
+            left1.Set(ControlMode::PercentOutput, -wrongness);
+            left2.Set(ControlMode::PercentOutput, -wrongness);
+        }
+        else{
+            double wrongness = Controls.GetY(); // 1 when it's 360 degrees away, and then * 0.5 so the max is 0.5.
+            right1.Set(ControlMode::PercentOutput, wrongness);
+            right2.Set(ControlMode::PercentOutput, wrongness);
+            left1.Set(ControlMode::PercentOutput, -wrongness);
+            left2.Set(ControlMode::PercentOutput, -wrongness);
+        }
+        //*/
+        /*//
+        printf("Displacement X: %f\nDisplacement Y: %f\nDisplacement Z: %f\n", navx.GetDisplacementX(), navx.GetDisplacementY(), navx.GetDisplacementZ());
+        usleep(1000000);
+        //*/
+    }
 
-        left1.Set(ControlMode::PercentOutput, left1mov);
-        right1.Set(ControlMode::PercentOutput, right1mov);
-        left2.Set(ControlMode::PercentOutput, left2mov);
-        right2.Set(ControlMode::PercentOutput, right2mov);
-        //usleep(200000);
+    void TeleopPeriodic(){
+        right1.Set(ControlMode::Position, right1Pos);
+        right2.Set(ControlMode::Position, right2Pos);
+        left1.Set(ControlMode::Position, left1Pos);
+        left2.Set(ControlMode::Position, left2Pos);
     }
 
     void TestLoop(){

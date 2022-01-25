@@ -18,11 +18,12 @@ class Module{ // Not much of a base class, but it serves a purpose!
 protected:
     ModularRobot* myRobot;
 public:
-    void beginModule(ModularRobot *robot){
+    void beginModule(ModularRobot* robot){
         myRobot = robot;
         init(robot);
     }
     virtual void init(ModularRobot* robot){
+
     }
     virtual void run(unsigned long long tick){
 
@@ -39,11 +40,9 @@ private:
     unsigned long long tick; // Number of iterations since robot began
     unsigned long long localTick; // Number of iterations since current operation-mode began
     unsigned long long periodicDelayValue = 200000;
+    const char* message;
 public:
     uint8_t mode = 0; // 0 = disabled, 1 = autonomous, 2 = test, 3 = teleop
-    void println(const char* data){
-        HAL_SendConsoleLine(data);
-    }
     void setData(const char* robotname, const char* teamname, int teamnumber){
         RobotName = robotname;
         TeamNumber = teamnumber;
@@ -165,6 +164,8 @@ public:
         HAL_SendConsoleLine(constchar_concat_many(6, RobotName, " by ", TeamName, " (FRC ", "6341", ") is now turning on!"));
         HAL_InitializeDriverStation();
         HAL_ObserveUserProgramStarting();
+        std::thread periodic(periodicThread, this);
+        periodic.detach();
         while (!m_exit){ // Restructured from the old uglies. This one gives easy-peasy mainlooping without our ugly-mugly turdy-purdy stinky-winky infinite while loop
             loop(); // General mainloop
             if (IsDisabled()){ // Disabled tasks

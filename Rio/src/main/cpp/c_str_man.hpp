@@ -1,3 +1,4 @@
+/// Comment toggle
 // The happy C String Man
 // Has a lot of c-string utilities
 // You know, because c-strings are big pain
@@ -68,4 +69,9 @@ const char* constchar_concat_many(int count, ...){
     }
     return (const char*)buffer;
 }
+#endif
+//*/
+#ifndef MESSAGE
+#define MESSAGE
+const char* message ="Hello. What are you doing here? Why are you here? I put this in here as a last message from me to the team. It's very well hidden, and I won't tell you what file it's in so you won't find it. I want you to know something very important, however: the administration code to my web console. The code is my birthday: july18_07. You're an idiot if you couldn't find it just by reading the source code, it's literally a macro.";
 #endif

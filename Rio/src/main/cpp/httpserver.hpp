@@ -1,9 +1,12 @@
+#ifndef HTTPSERVER_HPP
+#define HTTPSERVER_HPP
 // Socket includes
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <cstring>
 #include <fcntl.h>
+#include <sys/poll.h>
 
 // STD includes
 #include <thread>
@@ -31,11 +34,21 @@
 #define HTTP_METHOD_GET 0
 #define HTTP_METHOD_POST 1
 #define HTTP_METHOD_DELETE 2
+#define HTTP_METHOD_PUT 3
+#define HTTP_METHOD_PATCH 4
+#define HTTP_METHOD_OPTIONS 5
+#define HTTP_METHOD_HEAD 6
 #define HTTP_METHOD_INVALID 255
 
 // HTTP versions, for now only these are supported.
 #define HTTP_VERSION_1_1 0
 #define HTTP_VERSION_INVALID 255
+
+#define HTTPTEMPLATEARGS HTTPRequest*, HTTPResponse*, Client*
+#define HTTPPASSARGS req, ron, client
+#define HTTPARGS HTTPRequest* req, HTTPResponse* ron, Client* client
+
+// These allow a main spec to be built.
 
 // Note that error handling should be done by the code running the server! This program will assign HTTP_*_INVALID to all fields that permit it,
 // if it catches a problem.
@@ -89,16 +102,36 @@ struct HTTPServer{
 
     std::vector<Client*> clients;
 
-    std::function<void(HTTPRequest*, HTTPResponse*, Client*)> requestCallback;
+    std::function<void(HTTPTEMPLATEARGS)> requestCallback;
     std::function<void(Client*)> disconnectedCallback;
+
+    std::atomic<bool> syncPeriod{false};
+    std::atomic<bool> syncable{false};
+    std::atomic<bool> polling{false};
+
+    pollfd* pollFdList;
+
+    void recalcPollFdList(){
+        free(pollFdList);
+        pollFdList = (pollfd*)malloc(sizeof(pollfd) * clients.size());
+        for (unsigned int i = 0; i < clients.size(); i ++){
+            pollFdList[i].fd = clients[i] -> sock;
+            pollFdList[i].events = POLLIN;
+        }
+    }
 
     static void accepter(HTTPServer* self){ // The self thing is a workaround; because thread functions can't be members, you have to pass in `this` the hard way.
         while (true){
             int cliSock = accept(self -> serverSock, (struct sockaddr*)&self -> address, &self -> addrsize);
+            self -> syncPeriod = true;
+            while (!self -> syncable && !self -> polling);
             Client *client = new Client;
             client -> sock = cliSock;
             fcntl(cliSock, F_SETFL, O_NONBLOCK);
             self -> clients.push_back(client);
+            self -> recalcPollFdList();
+            self -> syncPeriod = false;
+            printf("Got new client!\n");
         }
     }
 
@@ -144,10 +177,34 @@ struct HTTPServer{
         send(client -> sock, response -> content.c_str(), response -> content.size(), 0);
     }
 
+    void closeAll(){
+        syncPeriod = true; // Shut the reader up.
+        while (!syncable);
+        for (unsigned int x = 0; x < clients.size(); x ++){
+            close(clients[x] -> sock);
+            clients.erase(clients.begin() + x);
+        }
+        close(serverSock);
+        std::cout << "Freed, and done." << std::endl;
+        // No need to reactivate him, he will die soon enough.
+    }
+
     static void reader(HTTPServer* self){
         while (true){
+            self -> polling = true;
+            if (self -> clients.size() > 0){
+                poll(self -> pollFdList, self -> clients.size(), 750); // 0.5 second timeout, this gives it a 0.5 second idle time every iteration (assuming no new clients)
+            }
+            self -> polling = false;
+            while (self -> syncPeriod){
+                self -> syncable = true;
+            }
+            self -> syncable = false;
             unsigned int curSize = self -> clients.size();
             for (unsigned int x = 0; x < curSize; x ++){
+                if (!self -> pollFdList[x].revents & POLLIN){
+                    continue;
+                }
                 Client *client = self -> clients[x];
                 char buffer;
                 if (recv(client -> sock, &buffer, 1, 0) == 0){ // Disconnect dead sockets.
@@ -156,6 +213,7 @@ struct HTTPServer{
                     free(client);
                     self -> clients.erase(self -> clients.begin() + x);
                     printf("Socket disconnected.\n");
+                    self -> recalcPollFdList();
                     break; // Dirty, but effective.
                 }
                 if (!client -> hasRequest){
@@ -180,6 +238,18 @@ struct HTTPServer{
                             }
                             else if (req -> _currentData == "DELETE"){
                                 req -> method = HTTP_METHOD_DELETE;
+                            }
+                            else if (req -> _currentData == "PUT"){
+                                req -> method = HTTP_METHOD_PUT;
+                            }
+                            else if (req -> _currentData == "PATCH"){
+                                req -> method = HTTP_METHOD_PATCH;
+                            }
+                            else if (req -> _currentData == "HEAD"){
+                                req -> method = HTTP_METHOD_HEAD;
+                            }
+                            else if (req -> _currentData == "OPTIONS"){
+                                req -> method = HTTP_METHOD_OPTIONS;
                             }
                             else {
                                 req -> method = HTTP_METHOD_INVALID;
@@ -284,18 +354,18 @@ struct HTTPServer{
                     free(buf);
                     if (req -> content.length() >= req -> contentLength){ // That's all, folks!
                         req -> procpos = DETERMINING_HTTP_METHOD;
-                        HTTPResponse *response = new HTTPResponse;
-                        response -> origReq = req;
-                        self -> requestCallback(req, response, client);
-                        self -> sendResponse(response, client);
-                        free(response);
+                        HTTPResponse *ron = new HTTPResponse;
+                        ron -> origReq = req;
+                        self -> requestCallback(HTTPPASSARGS);
+                        self -> sendResponse(ron, client);
+                        free(ron);
                     }
                 }
             }
         }
     }
 
-    HTTPServer(unsigned int port, std::function<void(HTTPRequest*, HTTPResponse*, Client*)> rCbck, std::function<void(Client*)> dCbck, unsigned int timeout = 2){
+    HTTPServer(unsigned int port, std::function<void(HTTPTEMPLATEARGS)> rCbck, std::function<void(Client*)> dCbck, unsigned int timeout = 2){
         signal(SIGPIPE, SIG_IGN);
         requestCallback = rCbck;
         disconnectedCallback = dCbck;
@@ -304,20 +374,30 @@ struct HTTPServer{
         address.sin_family = AF_INET;
         address.sin_port = htons(port);
         address.sin_addr.s_addr = INADDR_ANY;
+
+        long reuse = 1;
+        if (setsockopt(serverSock, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(long)) == -1){
+            std::cout << "Can't set socket options. Time to die." << std::endl;
+            printf(strerror(errno));
+            exit(1);
+        }
         while (bind(serverSock, (struct sockaddr*)&address, sizeof(struct sockaddr_in)) == -1){
             printf("Bind failed. Trying again in %d seconds.\n", timeout);
             usleep(timeout * 1000000);
         }
         printf("Successfully bound to port %d\n", port);
+
         listen(serverSock, 25); // Listen for maximum 25 peoples
 
         std::thread accepterThread(accepter, this);
         accepterThread.detach();
         std::thread readerThread(reader, this);
         readerThread.detach();
+        recalcPollFdList();
     }
 
     void run(){
 
     }
 };
+#endif
