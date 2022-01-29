@@ -275,10 +275,10 @@ public:
         else{
             triggy = true;
         }
-        left1Pos += left1mov * 2048;
-        left2Pos += left2mov * 2048;
-        right1Pos += right1mov * 2048;
-        right2Pos += right2mov * 2048;
+        left1.Set(ControlMode::PercentOutput, left1mov);
+        left2.Set(ControlMode::PercentOutput, left2mov);
+        right1.Set(ControlMode::PercentOutput, right1mov);
+        right2.Set(ControlMode::PercentOutput, right2mov);
         //*/
         /*//
         if (Controls.GetTrigger()){
