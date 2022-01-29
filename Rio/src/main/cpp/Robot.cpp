@@ -326,7 +326,7 @@ public:
                 right2mov = speed;
                 left1mov = -speed;
                 left2mov = -speed;
-                double followerSpeed = (48 - distance) * 0.05;
+                double followerSpeed = (4 - targetArea) * 0.2;
                 right1mov += followerSpeed;
                 right2mov += followerSpeed;
                 left1mov += followerSpeed;
