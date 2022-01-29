@@ -334,14 +334,14 @@ public:
             }
         }
         else {
-            right1mov = Controls.GetY() + (Controls.GetX() / 2);
-            right2mov = Controls.GetY() + (Controls.GetX() / 2);
-            left1mov = Controls.GetY() + -(Controls.GetX() / 2);
-            left2mov = Controls.GetY() + -(Controls.GetX() / 2);
-            right1mov *= Controls.GetThrottle();
-            right2mov *= Controls.GetThrottle();
-            left1mov *= Controls.GetThrottle();
-            left2mov *= Controls.GetThrottle();
+            right1mov = Controls.GetY() + -(Controls.GetX() / 2);
+            right2mov = Controls.GetY() + -(Controls.GetX() / 2);
+            left1mov = Controls.GetY() + (Controls.GetX() / 2);
+            left2mov = Controls.GetY() + (Controls.GetX() / 2);
+            right1mov *= (Controls.GetThrottle() + 1)/2;
+            right2mov *= (Controls.GetThrottle() + 1)/2;
+            left1mov *= (Controls.GetThrottle() + 1)/2;
+            left2mov *= (Controls.GetThrottle() + 1)/2;
         }
         right1.Set(ControlMode::PercentOutput, right1mov);
         right2.Set(ControlMode::PercentOutput, right2mov);
