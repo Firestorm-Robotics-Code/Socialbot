@@ -275,8 +275,6 @@ public:
         else{
             triggy = true;
         }
-        printf("%f\n", left1mov);
-        usleep(1000000);
         left1Pos += left1mov * 2048;
         left2Pos += left2mov * 2048;
         right1Pos += right1mov * 2048;
