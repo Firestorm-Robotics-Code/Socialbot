@@ -78,13 +78,18 @@ If identifiable sections of this License, shall survive. Termination Upon Assert
 #include <frc/DigitalInput.h>
 #include <AHRS.h>
 #include <frc/SPI.h>
+#include "networktables/NetworkTable.h"
+#include "networktables/NetworkTableInstance.h"
+#include "networktables/NetworkTableEntry.h"
+#include "networktables/NetworkTableValue.h"
+#include <cmath>
 
 
 #include "ModularRobot.hpp"
-#include "httpserver.hpp"
+//#include "httpserver.hpp"
 
 // Note that in any case where user and driverstation are at odds, driverstation wins. The person at the driverstation computer can, thus, at any time, override mode and similar.
-#include "site.hpp"
+//#include "site.hpp"
 
 
 class Robot : public ModularRobot{
@@ -106,8 +111,9 @@ private:
     frc::Compressor comp{5};
     frc::Solenoid down{5, 1};
     frc::DigitalInput button{2};
-    HTTPServer *server;
+    //HTTPServer *server;
     AHRS navx {frc::SPI::Port::kMXP};
+    std::shared_ptr<NetworkTable> table = nt::NetworkTableInstance::GetDefault().GetTable("limelight");
 
 public:
 
@@ -117,16 +123,16 @@ public:
         setData("Socialbot", "Firestorm Robotics", 6341);
     }
 
-    void respond(HTTPARGS){
+    /*void respond(HTTPARGS){
 
-    }
+    }*/
 
-    void disconnect(Client *client){
+//    void disconnect(Client *client){
         /*// Comment gate. Add an asterisk in front of the first forward slash to close, remove said asterisk to open.
         // The idea is (quite idiotically) to comment out code cleanly by toggling one character.
         free(client -> state); // Prevent memleak.
         //*/
-    }
+    //}
 
     static void Periodic(Robot *self){
         /*//
@@ -276,7 +282,7 @@ public:
         right1Pos += right1mov * 2048;
         right2Pos += right2mov * 2048;
         //*/
-        ///
+        /*//
         if (Controls.GetTrigger()){
             const double minSpeed = 0;
             const double maxSpeed = 0.3;
@@ -298,6 +304,49 @@ public:
         printf("Displacement X: %f\nDisplacement Y: %f\nDisplacement Z: %f\n", navx.GetDisplacementX(), navx.GetDisplacementY(), navx.GetDisplacementZ());
         usleep(1000000);
         //*/
+        double right1mov = 0;
+        double right2mov = 0;
+        double left1mov = 0;
+        double left2mov = 0;
+        if (Controls.GetTrigger()){
+            double targetOffsetAngle_Horizontal = table->GetNumber("tx",0.0);
+            double targetOffsetAngle_Vertical = table->GetNumber("ty",0.0);
+            double targetArea = table->GetNumber("ta",0.0);
+            double targetSkew = table->GetNumber("ts",0.0);
+            double hasTarget = table -> GetNumber("tv", 0);
+            double speed = (targetOffsetAngle_Horizontal / 20) * 0.4;
+            unsigned int botHeightInches = 44;
+            unsigned int targetHeightInches = 66;
+            double distance = (targetHeightInches - botHeightInches) / tan(targetOffsetAngle_Vertical);
+            printf("Distance to target: %f\n", distance);
+            usleep(1000000);
+
+            if (hasTarget){
+                right1mov = speed;
+                right2mov = speed;
+                left1mov = -speed;
+                left2mov = -speed;
+                double followerSpeed = (48 - distance) * 0.05;
+                right1mov += followerSpeed;
+                right2mov += followerSpeed;
+                left1mov += followerSpeed;
+                left2mov += followerSpeed;
+            }
+        }
+        else {
+            right1mov = Controls.GetY() + (Controls.GetX() / 2);
+            right2mov = Controls.GetY() + (Controls.GetX() / 2);
+            left1mov = Controls.GetY() + -(Controls.GetX() / 2);
+            left2mov = Controls.GetY() + -(Controls.GetX() / 2);
+            right1mov *= Controls.GetThrottle();
+            right2mov *= Controls.GetThrottle();
+            left1mov *= Controls.GetThrottle();
+            left2mov *= Controls.GetThrottle();
+        }
+        right1.Set(ControlMode::PercentOutput, right1mov);
+        right2.Set(ControlMode::PercentOutput, right2mov);
+        left1.Set(ControlMode::PercentOutput, left1mov);
+        left2.Set(ControlMode::PercentOutput, left2mov);
     }
 
     void TeleopPeriodic(){

@@ -12,7 +12,9 @@
 #include <thread>
 #include <string>
 #include <vector>
+#include <map>
 #include <atomic>
+#include <mutex>
 #include <functional>
 
 // Otherwise
@@ -69,9 +71,27 @@ struct HTTPRequest{
 
     std::vector<HTTPHeader*> headers;
 
+    std::map<std::string, std::string> cookies;
+
     HTTPHeader *_currentHeader; // Header buffer.
     std::string _currentData; // This is a multi-purpose buffer.
     bool _ignoringSpaces = true; // This is for when it ignores whitespace between the name and value of a header.
+
+    HTTPHeader* getHeader(std::string name){
+        for (unsigned int i; i < headers.size(); i ++){
+            if (headers[i] -> name == name){
+                return headers[i];
+            }
+        }
+        return nullptr;
+    }
+
+    void delete(){
+        free(_currentHeader);
+        for (unsigned int x = 0; x < headers.size(); x++){
+            free(headers[x]);
+        }
+    }
 };
 
 struct HTTPResponse{
@@ -83,6 +103,15 @@ struct HTTPResponse{
     // Automatically available headers:
     bool keepAlive = true;
     std::string contentType = "text/plain";
+
+    std::map<std::string, std::string> cookies;
+
+    void delete(){
+        free(origReq);
+        for (unsigned int x = 0; x < headers.size(); x++){
+            free(headers[x]);
+        }
+    }
 };
 
 // Client, is it really that hard to understand? Badadadummmmmm.
@@ -105,32 +134,30 @@ struct HTTPServer{
     std::function<void(HTTPTEMPLATEARGS)> requestCallback;
     std::function<void(Client*)> disconnectedCallback;
 
-    std::atomic<bool> syncPeriod{false};
-    std::atomic<bool> syncable{false};
-    std::atomic<bool> polling{false};
+    std::mutex readMutex;
 
     pollfd* pollFdList;
 
     void recalcPollFdList(){
-        free(pollFdList);
-        pollFdList = (pollfd*)malloc(sizeof(pollfd) * clients.size());
-        for (unsigned int i = 0; i < clients.size(); i ++){
-            pollFdList[i].fd = clients[i] -> sock;
-            pollFdList[i].events = POLLIN;
+        if (clients.size() > 0){
+            pollFdList = (pollfd*)realloc(pollFdList, sizeof(pollfd) * clients.size());
+            for (unsigned int i = 0; i < clients.size(); i ++){
+                pollFdList[i].fd = clients[i] -> sock;
+                pollFdList[i].events = POLLIN;
+            }
         }
     }
 
     static void accepter(HTTPServer* self){ // The self thing is a workaround; because thread functions can't be members, you have to pass in `this` the hard way.
         while (true){
             int cliSock = accept(self -> serverSock, (struct sockaddr*)&self -> address, &self -> addrsize);
-            self -> syncPeriod = true;
-            while (!self -> syncable && !self -> polling);
+            self -> readMutex.lock();
             Client *client = new Client;
             client -> sock = cliSock;
             fcntl(cliSock, F_SETFL, O_NONBLOCK);
             self -> clients.push_back(client);
             self -> recalcPollFdList();
-            self -> syncPeriod = false;
+            self -> readMutex.unlock();
             printf("Got new client!\n");
         }
     }
@@ -162,6 +189,10 @@ struct HTTPServer{
         else{
             send(client -> sock, "close\r\n", 7, 0);
         }
+        // Cookies
+        for (const auto& pair : response.cookies){
+            send(client -> sock, "Set-Cookie: ");pair.first
+        }
         // Content-Length:
         std::string contentLengthHeader = "Content-Length: ";
         contentLengthHeader += std::to_string(response -> content.size());
@@ -178,28 +209,22 @@ struct HTTPServer{
     }
 
     void closeAll(){
-        syncPeriod = true; // Shut the reader up.
-        while (!syncable);
+        readMutex.lock();
         for (unsigned int x = 0; x < clients.size(); x ++){
             close(clients[x] -> sock);
             clients.erase(clients.begin() + x);
         }
         close(serverSock);
         std::cout << "Freed, and done." << std::endl;
-        // No need to reactivate him, he will die soon enough.
+        // No need to unlock the mutex, the scope is being destroyed.
     }
 
     static void reader(HTTPServer* self){
         while (true){
-            self -> polling = true;
-            if (self -> clients.size() > 0){
-                poll(self -> pollFdList, self -> clients.size(), 750); // 0.5 second timeout, this gives it a 0.5 second idle time every iteration (assuming no new clients)
+            self -> readMutex.lock();
+            if (self -> clients.size() > 0){ // Initial connection shouldn't take time.
+                poll(self -> pollFdList, self -> clients.size(), 750); // 0.75 second timeout, this gives it a 0.5 second idle time every iteration (assuming no new clients)
             }
-            self -> polling = false;
-            while (self -> syncPeriod){
-                self -> syncable = true;
-            }
-            self -> syncable = false;
             unsigned int curSize = self -> clients.size();
             for (unsigned int x = 0; x < curSize; x ++){
                 if (!self -> pollFdList[x].revents & POLLIN){
@@ -300,6 +325,7 @@ struct HTTPServer{
                 }
                 if (req -> procpos == READING_HTTP_HEADERS_P1){
                     req -> _ignoringSpaces = true; // Gotta reset it.
+                    req -> _currentData += buffer; // Because otherwise we lose this byte. Idk why.
                     while (true){ // See the other one that does this, the comment is the same.
                         length = recv(client -> sock, &buffer, 1, 0); // Buffer, length, flags.
                         if (length != 1){
@@ -332,7 +358,38 @@ struct HTTPServer{
                             if (req -> _currentHeader -> name == "Content-Length"){
                                 req -> contentLength = std::stoi(req -> _currentHeader -> value);
                             }
+                            else if (req -> _currentHeader -> name == "Cookie"){
+                                std::string cName;
+                                std::string cVal;
+                                uint8_t cPhase = 0;
+                                for (unsigned int x = 0; x < req -> _currentHeader -> value.size(); x ++){
+                                    char tbu = req -> _currentHeader -> value.at(x);
+                                    if (cPhase == 0){
+                                        if (tbu == '='){
+                                            cPhase = 1;
+                                        }
+                                        else{
+                                            cName += tbu;
+                                        }
+                                    }
+                                    else if (cPhase == 1){
+                                        if (tbu == ';'){
+                                            req -> cookies[cName] = cVal;
+                                            cName = "";
+                                            cVal = "";
+                                            cPhase = 0;
+                                        }
+                                        else{
+                                            cVal += tbu;
+                                        }
+                                    }
+                                }
+                                if (cName != ""){
+                                    req -> cookies[cName] = cVal;
+                                }
+                            }
                             else{
+                                std::cout << "Header name:" << req -> _currentHeader -> name << "!" << std::endl;
                                 req -> _currentHeader = nullptr;
                                 req -> headers.push_back(req -> _currentHeader);
                             }
@@ -358,10 +415,14 @@ struct HTTPServer{
                         ron -> origReq = req;
                         self -> requestCallback(HTTPPASSARGS);
                         self -> sendResponse(ron, client);
+                        req.delete();
+                        free(req);
+                        ron.delete();
                         free(ron);
                     }
                 }
             }
+            self -> readMutex.unlock();
         }
     }
 

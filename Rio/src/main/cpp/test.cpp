@@ -1,4 +1,4 @@
-/// This is a comment toggle. Remove the asterisk to activate this entire codee, add it back to deactivate.
+/*// This is a comment toggle. Remove the asterisk to activate this entire codee, add it back to deactivate.
 #include "httpserver.hpp"
 #include "site.hpp"
 
@@ -13,7 +13,7 @@ void gratuitouslyClose(int signum){
 int main(){
     site::beginSite();
     signal(SIGINT, gratuitouslyClose);
-    while (true){ // Keep it from exiting until we're ready.
+    while (true){ // Keep it from exiting until we're ready. This is threaded code, and everything is handled in threads; thus, externality is required.
 
     }
 }
