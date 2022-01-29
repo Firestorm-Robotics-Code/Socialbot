@@ -235,7 +235,7 @@ public:
     bool state = false; // Off
 
     void TeleopLoop(){
-        /*//
+        ///
         double controlY = -1 * Controls.GetY() * (Controls.GetThrottle() + 1) / 2; // Speed limiter, the throttle can be -1 to 1 so this makes it work
         double controlX = Controls.GetX() * (Controls.GetThrottle() + 1) / 2;
         double right1mov = controlY;
@@ -304,6 +304,7 @@ public:
         printf("Displacement X: %f\nDisplacement Y: %f\nDisplacement Z: %f\n", navx.GetDisplacementX(), navx.GetDisplacementY(), navx.GetDisplacementZ());
         usleep(1000000);
         //*/
+        /*//
         double right1mov = 0;
         double right2mov = 0;
         double left1mov = 0;
@@ -347,6 +348,7 @@ public:
         right2.Set(ControlMode::PercentOutput, right2mov);
         left1.Set(ControlMode::PercentOutput, left1mov);
         left2.Set(ControlMode::PercentOutput, left2mov);
+        //*/
     }
 
     void TeleopPeriodic(){
