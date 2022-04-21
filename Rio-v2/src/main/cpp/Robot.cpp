@@ -108,13 +108,13 @@ private:
     long right2Pos = 0;
     long left1Pos = 0;
     long left2Pos = 0;
-    frc::Solenoid up{5, 0};
-    frc::Compressor comp{5};
-    frc::Solenoid down{5, 1};
+    frc::Solenoid up{5, frc::PneumaticsModuleType::CTREPCM, 0};
+    frc::Compressor comp{5, frc::PneumaticsModuleType::CTREPCM};
+    frc::Solenoid down{5, frc::PneumaticsModuleType::CTREPCM, 1};
     frc::DigitalInput button{2};
     //HTTPServer *server;
     AHRS navx {frc::SPI::Port::kMXP};
-    std::shared_ptr<NetworkTable> table = nt::NetworkTableInstance::GetDefault().GetTable("limelight");
+    std::shared_ptr<nt::NetworkTable> table = nt::NetworkTableInstance::GetDefault().GetTable("limelight");
 
 public:
 
