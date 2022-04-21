@@ -6,7 +6,8 @@
 
 
 You see how nice things can be built upon the swamps of copyright?
-                                             ________________________________________________
+                                             .
+                                            :________________________________________________:
                                             |                                                |
                                             |   ________                          ________   |
                                             |  |        |                        |        |  |
@@ -234,6 +235,10 @@ public:
     bool triggy = true; // We want the first press to go up.
     bool state = false; // Off
 
+    double getDistanceAngle(double offset, double wantsDist){
+        return atan2(offset, wantsDist) * (180.0/3.141592653589793238463);
+    }
+
     void TeleopLoop(){
         ///
         double controlY = -1 * Controls.GetY() * (Controls.GetThrottle() + 1) / 2; // Speed limiter, the throttle can be -1 to 1 so this makes it work
@@ -242,6 +247,9 @@ public:
         double left1mov = controlY;
         double right2mov = controlY;
         double left2mov = controlY;
+        double limelightTargetArea = table->GetNumber("ta",0.0);
+        double limelightTargetOffsetAngle_Horizontal = table->GetNumber("tx",0.0);
+        double limelightTargetOffsetAngle_Vertical = table->GetNumber("ty",0.0);
 
         if (!Controls.GetTrigger()){
             right1mov -= 2 * controlX;
@@ -275,6 +283,32 @@ public:
         else{
             triggy = true;
         }
+
+        if (Controls.GetRawButton(3)){
+            double followerSpeed = (4 - limelightTargetArea) * 0.2;
+            right1mov = followerSpeed + limelightTargetOffsetAngle_Horizontal / 27;
+            left1mov = followerSpeed - limelightTargetOffsetAngle_Horizontal / 27;
+            right2mov = followerSpeed + limelightTargetOffsetAngle_Horizontal / 27;
+            left2mov = followerSpeed - limelightTargetOffsetAngle_Horizontal / 27;
+        }
+        else if (Controls.GetRawButton(4)){
+            double motion = limelightTargetOffsetAngle_Vertical/27;
+            right1mov = motion;
+            right2mov = -motion;
+            left1mov = -motion;
+            left2mov = motion;
+        }
+        else if (Controls.GetRawButton(5)){
+            double distAng = getDistanceAngle(6, 24); // Measured in N-ches (I have no idea what unit we're using)
+            double wrongness = (limelightTargetOffsetAngle_Vertical - distAng) * 0.02;
+            printf("Wrong by: %f\n", wrongness);
+            usleep(1000000);
+            right1mov = wrongness;
+            left1mov = wrongness;
+            right2mov = wrongness;
+            left2mov = wrongness;
+        }
+        ///
         left1.Set(ControlMode::PercentOutput, left1mov);
         left2.Set(ControlMode::PercentOutput, left2mov);
         right1.Set(ControlMode::PercentOutput, right1mov);
@@ -350,29 +384,34 @@ public:
     }
 
     void TeleopPeriodic(){
-        right1.Set(ControlMode::Position, right1Pos);
+        /*right1.Set(ControlMode::Position, right1Pos);
         right2.Set(ControlMode::Position, right2Pos);
         left1.Set(ControlMode::Position, left1Pos);
-        left2.Set(ControlMode::Position, left2Pos);
+        left2.Set(ControlMode::Position, left2Pos);*/
     }
 
     void TestLoop(){
-
+        double targetOffsetAngle_Horizontal = table->GetNumber("tx",0.0);
+        double targetOffsetAngle_Vertical = table->GetNumber("ty",0.0);
+        double targetArea = table->GetNumber("ta",0.0);
+        double targetSkew = table->GetNumber("ts",0.0);
+        double hasTarget = table -> GetNumber("tv", 0);
+        double speed = (targetOffsetAngle_Horizontal / 20) * 0.4;
+        unsigned int botHeightInches = 44;
+        unsigned int targetHeightInches = 50; // 6 inches up
+        double trigonometry = tan(targetOffsetAngle_Vertical);
+        if (trigonometry == 0){
+            printf("CAUGHT INFINITE DISTANCE\n");
+            usleep(1000000);
+            return;
+        }
+        double distance = (targetHeightInches - botHeightInches) / trigonometry;
+        printf("Distance to target: %f\n", distance);
+        usleep(1000000);
     }
 
     void BeginTest(){
-        /* NORMAL   */ right1.Set(ControlMode::PercentOutput, 0.3);
-        usleep(1000000);
-        right1.Set(ControlMode::PercentOutput, 0);
-        /* NORMAL   */ right2.Set(ControlMode::PercentOutput, 0.3);
-        usleep(1000000);
-        right2.Set(ControlMode::PercentOutput, 0);
-        /* INVERTED */  left1.Set(ControlMode::PercentOutput, 0.3);
-        usleep(1000000);
-        left1.Set(ControlMode::PercentOutput, 0);
-        /* INVERTED */  left2.Set(ControlMode::PercentOutput, 0.3);
-        usleep(1000000);
-        left2.Set(ControlMode::PercentOutput, 0);
+
     }
 
     void AutonomousLoop(){

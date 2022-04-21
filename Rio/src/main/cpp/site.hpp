@@ -57,7 +57,7 @@ namespace site{
             ron -> content = "<!DOCTYPE html><html><head></head><body>Client state has been updated; you are now an administrator. <a href = '/admin'>Administration console</a></body></html>";
             ((ClientState*)client -> state) -> perms = AUTH_ADMIN;
         }
-        ron -> headers.cookies["Auth"] = ((ClientState*)client -> state) -> perms;
+        ron -> cookies["Auth"] = ((ClientState*)client -> state) -> perms;
     }
     void admin(HTTPARGS){
         if (((ClientState*)client -> state) -> perms == AUTH_ADMIN){
@@ -99,7 +99,7 @@ namespace site{
             client -> state = new ClientState{"", 0};
         }
         if (req -> cookies["Auth"] != ""){
-            client -> state -> perms = req -> cookies["Auth"].at(0);
+            ((ClientState*)client -> state) -> perms = req -> cookies["Auth"].at(0);
         }
         urlMap(HTTPPASSARGS);
     }

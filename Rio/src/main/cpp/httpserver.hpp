@@ -1,3 +1,7 @@
+/* By Tyler Clarke. Any other work, by any person under any circumstances, will be duly accredited.
+    A threaded HTTP server in C++, primarily for the use of my robotics team. Works on any platform supporting the Unix TCP socket api.
+*/
+
 #ifndef HTTPSERVER_HPP
 #define HTTPSERVER_HPP
 // Socket includes
